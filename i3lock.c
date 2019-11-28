@@ -1226,6 +1226,10 @@ int main(int argc, char *argv[]) {
     draw_image(bg_pixmap, last_resolution);
 
     xcb_window_t stolen_focus = find_focused_window(conn, screen->root);
+    uint32_t old_group = xcb_get_current_xkb_group(conn);
+    if (old_group != 0) {
+        xcb_set_current_xkb_group(conn, 0);
+    }
 
     /* Open the fullscreen window, already with the correct pixmap in place */
     win = open_fullscreen_window(conn, screen, color, bg_pixmap);
@@ -1299,11 +1303,9 @@ int main(int argc, char *argv[]) {
     ev_invoke(main_loop, xcb_check, 0);
     ev_loop(main_loop, 0);
 
-#ifndef __OpenBSD__
-    if (pam_cleanup) {
-        pam_end(pam_handle, PAM_SUCCESS);
+    if (old_group != 0) {
+        xcb_set_current_xkb_group(conn, old_group);
     }
-#endif
 
     if (stolen_focus == XCB_NONE) {
         return 0;

@@ -11,6 +11,7 @@
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_aux.h>
+#include <xcb/xkb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -105,6 +106,41 @@ xcb_visualtype_t *get_root_visual_type(xcb_screen_t *screen) {
 
     return NULL;
 }
+
+uint32_t xcb_get_current_xkb_group(xcb_connection_t *connection) {
+	xcb_xkb_get_state_cookie_t cookie = xcb_xkb_get_state(connection, XCB_XKB_ID_USE_CORE_KBD);
+	xcb_generic_error_t *error;
+	xcb_xkb_get_state_reply_t *reply = xcb_xkb_get_state_reply(connection, cookie, &error);
+	uint32_t result;
+	if (error != NULL) {
+		fprintf(stderr, "xcb_xkb_get_state() failed with error code %d - returning 0\n", error->error_code);
+		result = 0;
+	} else {
+		result = reply->group;
+	}
+	if (reply != NULL) {
+		free(reply);
+	}
+	return result;
+}
+
+void xcb_set_current_xkb_group(xcb_connection_t *connection, uint32_t group) {
+	xcb_void_cookie_t cookie = xcb_xkb_latch_lock_state(connection, XCB_XKB_ID_USE_CORE_KBD,
+			0, 0, 1/*lockGroup=true*/, group/*groupLock*/, 0, 0, 0);
+	xcb_generic_error_t *error = xcb_request_check(connection, cookie);
+	if (error != NULL) {
+		switch (error->error_code) {
+			case XCB_VALUE:
+				fprintf(stderr, "set_current_xkb_group(%d) failed with BadValue error\n", group);
+				break;
+			default:
+				fprintf(stderr, "set_current_xkb_group(%d) failed with error code %d\n", group, error->error_code);
+				break;
+		}
+		free(error);
+	}
+}
+
 
 xcb_pixmap_t create_bg_pixmap(xcb_connection_t *conn, xcb_screen_t *scr, u_int32_t *resolution, char *color) {
     xcb_pixmap_t bg_pixmap = xcb_generate_id(conn);
